@@ -1,0 +1,42 @@
+Rank by request id = 
+VAR CurrentRowRequestID = 'Sample Payment Request Data'[payment_request_id]
+RETURN
+RANKX(
+    FILTER( 
+        'Sample Payment Request Data',
+        'Sample Payment Request Data'[payment_request_id] = CurrentRowRequestID
+    ),
+    'Sample Payment Request Data'[created_date],
+    ,
+    ASC
+)
+
+
+Step Duration (min) = 
+VAR CurrentRowRequestID = 'Sample Payment Request Data'[payment_request_id]
+VAR CurrentRowRank = 'Sample Payment Request Data'[Rank by request id]
+VAR Starttime = 'Sample Payment Request Data'[created_date]
+VAR Endtime =
+    CALCULATE (
+        MAX ( 'Sample Payment Request Data'[created_date] ),
+        FILTER (
+            'Sample Payment Request Data',
+            'Sample Payment Request Data'[payment_request_id] = CurrentRowRequestID
+        ),
+        'Sample Payment Request Data'[Rank by request id] <= CurrentRowRank + 1
+    )
+VAR Nowtime =
+    TODAY ()
+RETURN
+    IF (
+        CurrentRowRank
+            = MAXX (
+                FILTER (
+                    'Sample Payment Request Data',
+                    'Sample Payment Request Data'[payment_request_id] = CurrentRowRequestID
+                ),
+                'Sample Payment Request Data'[Rank by request id]
+            ),
+        DATEDIFF ( Starttime, Nowtime, MINUTE ),
+        DATEDIFF ( Starttime, Endtime, MINUTE )
+    )
