@@ -1,0 +1,101 @@
+--InDAX Querying Solutions:
+
+--DAX Studio download: https://daxstudio.org/
+
+--Step 1: Select a table from your model in DAX Studio
+--Solution: 
+	EVALUATE 
+		'Sales'
+		
+--Step 2: Select the Sales table sorted by Order Date and Line Total in DAX Studio
+--Solution:
+	EVALUATE
+		'Sales'
+	ORDER BY
+		'Sales'[Order Date],
+		'Sales'[Line Total]
+
+--Step 3: Now we need to filter the table we select. Filter the Sales table where the product category is Bikes.
+--Solution:
+	EVALUATE
+		FILTER(
+			'Sales',
+			RELATED( 'Product'[Product Category] ) = "Bikes"
+		)
+		
+
+--Step 4: Filter is great, and that is what we should us ing DAX, but for querying there is a better function. 
+--Write the same query using CALCULATETABLE instead of FILTER (Hint: We don't need to use RELATED).
+--Solution: 
+	EVALUATE
+		CALCULATETABLE(
+			'Sales',
+			'Product'[Product Category] = "Bikes"
+		)
+		
+--Step 5: CALCULATETABLE does have limitations. It has no context so measures or related columns can't be used as a filter. 
+--In this case, the filter function needs to be used. Write a filter on the Product table that selects 
+--only the Products that have sales over $500. 
+--Solution: 
+	EVALUATE( 
+		FILTER(
+			'Sales',
+			[Sales Amount] > 500
+		)
+		
+--Step 6: Now we will select columns from a table and add expressions to our columns. Select the Order Date,
+--Quantity, Unit Price, Revenue, Discount, and Line Total from the Sales table. Remember to use the 
+--SELECTCOLUMNS function.
+--Solution: 
+	EVALUATE
+		SELECTCOLUMNS(
+			'Sales',
+			"Date", 'Sales'[Order Date],
+			"Quantity", 'Sales'[Quantity],
+			"Unit Price", 'Sales'[Unit Price],
+			"Revenue", 'Sales'[Unit Price] * 'Sales'[Quantity],
+			"Discount", 'Sales'[Discount],
+			"Line Total", 'Sales'[Line Total]
+		)
+
+--Step 7: We can also add columns with expressions to a table. Add the Product Category to the Sales table. 
+--Solution: 
+	EVALUATE
+		ADDCOLUMNS(
+			'Sales',
+			"Product Category", RELATED( 'Product'[Product Category] )
+		)
+		
+--Step 8: Now we will select columns from a table and add expressions to our columns. Select the Order Date,
+--sum of Quantity, and sum of Line Total from the Sales table. Remember to use the SUMMARIZE function.
+--Solution:
+	EVALUATE
+		SUMMARIZE(
+			'Sales',
+			'Sales'[Order Date],
+			"Quantity", sum( 'Sales'[Quantity] ), 
+			"Sales", sum( 'Sales'[Line Total] )
+		)
+
+--Step 9: We can also use SUMMARIZECOLUMNS, but it is more complex and not as common. We will review what it 
+--can do here, but don't worry about memorizing this syntax. Create the same table as Step 8 using SUMMARIZECOLUMNS instead of SUMMARIZE. 
+--Solution: 
+	EVALUATE
+		SUMMARIZECOLUMNS(
+			'Sales'[Order Date],
+			"Quantity", sum( 'Sales'[Quantity] ), 
+			"Sales", sum( 'Sales'[Line Total] )
+		)
+
+--Step 10: We can also include a table as a filter in SUMMARIZECOLUMNS. Add an argument before the Quantity column that filters Sales[Quantity]
+--to be greater than 5 products. Then update the funciton from Step 9 to include that filter.
+--Solution:
+	EVALUATE(
+		SUMMARIZECOLUMNS(
+			'Sales'[Order Date],
+			FILTER( ALL( 'Sales'[Quantity] ), Sales[Quantity] > 5 ),
+			"Quantity", sum( 'Sales'[Quantity] ), 
+			"Sales", sum( 'Sales'[Line Total] )
+		)
+		*Note: The ALL is not necessary in this statment, but it runs more efficiently because you are including only one column from the 
+		Sales table rather than the entire Sales table.
