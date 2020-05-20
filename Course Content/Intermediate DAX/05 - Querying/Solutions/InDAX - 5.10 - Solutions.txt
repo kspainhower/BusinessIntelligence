@@ -2,7 +2,7 @@
 
 --DAX Studio download: https://daxstudio.org/
 
---Step 1: Select a table from your model in DAX Studio
+--Step 1: Select the Sales table from your model in DAX Studio
 --Solution: 
 	EVALUATE 
 		'Sales'
@@ -24,7 +24,7 @@
 		)
 		
 
---Step 4: Filter is great, and that is what we should us ing DAX, but for querying there is a better function. 
+--Step 4: Filter is great, and that is what we should use in DAX, but for querying there is a better function. 
 --Write the same query using CALCULATETABLE instead of FILTER (Hint: We don't need to use RELATED).
 --Solution: 
 	EVALUATE
@@ -33,7 +33,7 @@
 			'Product'[Product Category] = "Bikes"
 		)
 		
---Step 5: CALCULATETABLE does have limitations. It has no context so measures or related columns can't be used as a filter. 
+--Step 5: CALCULATETABLE does have limitations. It has no context so measures or related columns cannot be used as a filter. 
 --In this case, the filter function needs to be used. Write a filter on the Product table that selects 
 --only the Products that have sales over $500. 
 --Solution: 
@@ -88,7 +88,7 @@
 		)
 
 --Step 10: We can also include a table as a filter in SUMMARIZECOLUMNS. Add an argument before the Quantity column that filters Sales[Quantity]
---to be greater than 5 products. Then update the funciton from Step 9 to include that filter.
+--to be greater than 5 products. Then update the function from Step 9 to include that filter.
 --Solution:
 	EVALUATE(
 		SUMMARIZECOLUMNS(
