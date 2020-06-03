@@ -1,0 +1,25 @@
+--AdDAX Data Lineage Solutions:
+
+--DAX Studio download: https://daxstudio.org/
+
+--Step 1: Use ADDCOLUMNS to create a table with Product Categories and Sales amount and give the Product Categories a new column name.
+--Solution: 
+	EVALUATE
+		ADDCOLUMNS (
+			SELECTCOLUMNS(
+				VALUES ( 'Product Category'[Product Category] ),
+				"My Product Category Name", 'Product Category'[Product Category]
+			),
+			"Amt", [Sales Amount]
+		)
+			
+--Step 2: Now add a blank string to the end of the Product Categories column and see what happens.
+--Solution:
+	EVALUATE
+		ADDCOLUMNS (
+			SELECTCOLUMNS(
+				VALUES ( 'Product Category'[Product Category] ),
+				"My Product Category Name", 'Product Category'[Product Category] & ""
+			),
+			"Amt", [Sales Amount]
+		)

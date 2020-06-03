@@ -1,0 +1,207 @@
+--AdDAX Querying Solutions:
+
+--DAX Studio download: https://daxstudio.org/
+
+--Step 1: Use CROSSJOIN to find the sales amount and number of sales for each product category and color category.
+--Solution: 
+	EVALUATE
+		ADDCOLUMNS (
+			CROSSJOIN (
+				DISTINCT( 'Product Category'[Product Category] ),
+				DISTINCT( 'Product'[Color] )
+				
+			),
+			"Sales", [Sales Amount] + 0,
+			"Number of Sales", CALCULATE( COUNT( Sales[Order ID] ) ) //Note that we need to use CALCULATE here to activate context transition
+		)
+		ORDER BY
+			'Product Category'[Product Category],
+			'Product'[Color]
+	
+		
+--Step 2: Select the top 3 colors by country by sales amount.
+--Solution:
+	EVALUATE
+		GENERATE (
+			VALUES ( 'Address'[Country/Region] ),
+			TOPN (
+				3,
+				ADDCOLUMNS ( VALUES ( 'Product'[Color] ), "Sales", [Sales Amount] ),
+				[Sales]
+			)
+		)
+	ORDER BY 
+		'Address'[Country/Region]
+
+	
+--Step 3: We now will look into UNION, INTERSECT, and EXCEPT. We first need to create a few table variables to compare. 
+-- Table variables solution:
+	EVALUATE
+		VAR RedBlack = 
+			CALCULATETABLE(
+				VALUES( 'Product'[Color] ),
+				'Product'[Color] IN { "Red", "Black" }
+			)
+		VAR WhiteBlack = 
+			CALCULATETABLE(
+				VALUES( 'Product'[Color] ),
+				'Product'[Color] IN { "White", "Black" }
+			)
+		VAR RedBlackDAX = { "Red", "Black" }
+	
+	--Now we can use these variables to see how data lineage could break with no ties back to the original data.
+	--Create a table using ADDCOLUMNS to show the sales amount for red and black products using the RedBlack table variable.
+	
+		ADDCOLUMNS(
+			RedBlackDAX,
+			"Sales", [Sales Amount]
+		)
+	
+	--This works because it has a data lineage connection to the model. Now use the RedBlackDAX table variable.
+	
+		ADDCOLUMNS(
+			RedBlackDAX,
+			"Sales", [Sales Amount]
+		)
+		
+	--The sales amount is not filtered because we have lost the data lineage connection to the model. Now, include UNION, INTERSECT, and EXCEPT to see how the data lineage performs
+	--with each of these joining functions.
+	
+	--UNION
+		ADDCOLUMNS(
+			UNION( RedBlack, WhiteBlack ) //The switch the RedBlack with RedBlackDAX and see what happens.
+			"Sales", [Sales Amount]
+		)
+	
+	--INTERSECT 
+		ADDCOLUMNS(
+			INTERSECT( RedBlack, WhiteBlack ) //The switch the RedBlack with RedBlackDAX and see what happens. Then switch the order so WhiteBlack is first and RedBlackDAX is second. 
+			"Sales", [Sales Amount]
+		)
+	
+	--EXCEPT
+		ADDCOLUMNS(
+			EXCEPT( RedBlack, WhiteBlack ) //The switch the RedBlack with RedBlackDAX and see what happens. Then switch the order so WhiteBlack is first and RedBlackDAX is second. 
+			"Sales", [Sales Amount]
+		)
+
+--Step 4: SUMMARIZE and SUMMARIZECOLUMNS have trouble when you reference columns from a table variable. Context transition is turned off and no data lineage exists. We have another
+--function called GROUPBY that will allow us to aggregate our data and preserve context transition from a table variable. We need to first create a few table variables:
+	EVALUATE
+		VAR AgeTable = 
+			ADDCOLUMNS(
+				VALUES( Customer[BirthDate] ),
+				"Age", INT( ( TODAY() - Customer[BirthDate] ) / 365.25 )
+			)
+		VAR AgeGroups = 
+			ADDCOLUMNS(
+				AgeTable,
+				"Age Group", 
+					SWITCH(
+						TRUE(),
+						[Age] <= 25, "18 - 25",
+						[Age] <= 45, "26 - 45",
+						[Age] <= 65, "46 - 65",
+						"66+"
+					),
+				"Sales", [Sales Amount]
+			)
+		RETURN
+			AgeGroups
+			
+		--We now are ready to summarize sales by AgeGroups. Give it a go with ADDCOLUMNS. 
+		
+		RETURN
+			ADDCOLUMNS(
+				SUMMARIZE( AgeGroups, [Age Group] ),
+				"Sales", [Sales]
+			)
+			
+		--It doesn't work. If we instead have the sales amount measure you notice that the sales is the same for each age group. Now let's use GROUPBY instead.
+		
+		RETURN
+			GROUPBY( 
+				AgeGroups,
+				[Age Group],
+				"Sales", sumx( CURRENTGROUP(), [Sales] )
+			)
+
+--Step 5: We now will show how we can troubleshoot measures easily with DAX studio. DAX studio allows you to define measures that only live within the query. 
+--We use DEFINE and MEASURE to retrive and create measures for our query. Find the [Sales Amount] measure and right click it, then click define measure. 
+--This is the DAX query for the visualization in our Poewr BI Report:
+	// DAX Query
+	EVALUATE
+		TOPN(
+			502,
+			SUMMARIZECOLUMNS(
+				ROLLUPADDISSUBTOTAL('Product Category'[Product Category], "IsGrandTotalRowTotal"),
+				"Sales_Amount", 'Measures Table'[Sales Amount],
+				"Percent_of_Total", 'Measures Table'[Percent of Total]
+			),
+			[IsGrandTotalRowTotal],
+			0,
+			'Product Category'[Product Category],
+			1
+		)
+
+	ORDER BY
+		[IsGrandTotalRowTotal] DESC, 'Product Category'[Product Category]
+		
+--Now let's define the measures by searching for [Percent of Total] and right clicking then selecting Define dependent measures.
+	DEFINE
+		
+	---- MODEL MEASURES BEGIN ----
+	MEASURE 'Measures Table'[Percent of Total] = 
+		DIVIDE( [Sales Amount], CALCULATE( [Sales Amount], ALL( Sales ) ) )
+	MEASURE 'Measures Table'[Sales Amount] = 
+		SUMX(
+			Sales,
+			Sales[Quantity] * Sales[Unit Price] 
+		)
+	---- MODEL MEASURES END ----
+	// DAX Query
+	EVALUATE
+		TOPN(
+			502,
+			SUMMARIZECOLUMNS(
+				ROLLUPADDISSUBTOTAL('Product Category'[Product Category], "IsGrandTotalRowTotal"),
+				"Sales_Amount", 'Measures Table'[Sales Amount],
+				"Percent_of_Total", 'Measures Table'[Percent of Total]
+			),
+			[IsGrandTotalRowTotal],
+			0,
+			'Product Category'[Product Category],
+			1
+		)
+
+	ORDER BY
+		[IsGrandTotalRowTotal] DESC, 'Product Category'[Product Category]
+	  
+--We can now change the measure [Sales Amount to multiply by the discount and see how the numbers change.
+	DEFINE
+		
+	---- MODEL MEASURES BEGIN ----
+	MEASURE 'Measures Table'[Percent of Total] = DIVIDE( [Sales Amount], CALCULATE( [Sales Amount], ALL( Sales ) ) )
+	MEASURE 'Measures Table'[Sales Amount] = SUMX(
+		Sales,
+		Sales[Quantity] * Sales[Unit Price] * Sales[Discount] 
+	)
+	---- MODEL MEASURES END ----
+	// DAX Query
+	EVALUATE
+		TOPN(
+			502,
+			SUMMARIZECOLUMNS(
+				ROLLUPADDISSUBTOTAL('Product Category'[Product Category], "IsGrandTotalRowTotal"),
+				"Sales_Amount", 'Measures Table'[Sales Amount],
+				"Percent_of_Total", 'Measures Table'[Percent of Total]
+			),
+			[IsGrandTotalRowTotal],
+			0,
+			'Product Category'[Product Category],
+			1
+		)
+
+	ORDER BY
+		[IsGrandTotalRowTotal] DESC, 'Product Category'[Product Category]
+ 
