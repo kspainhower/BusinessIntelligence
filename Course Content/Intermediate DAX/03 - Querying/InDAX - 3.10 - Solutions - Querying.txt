@@ -49,20 +49,20 @@
 --Solution: 
 	EVALUATE
 		SELECTCOLUMNS(
-			'Sales',
-			"Date", 'Sales'[Order Date],
-			"Quantity", 'Sales'[Quantity],
-			"Unit Price", 'Sales'[Unit Price],
-			"Revenue", 'Sales'[Unit Price] * 'Sales'[Quantity],
-			"Discount", 'Sales'[Discount],
-			"Line Total", 'Sales'[Line Total]
+			Sales,
+			"Date", Sales[Order Date],
+			"Quantity", Sales[Quantity],
+			"Unit Price", Sales[Unit Price],
+			"Revenue", Sales[Unit Price] * 'Sales'[Quantity],
+			"Discount", Sales[Discount],
+			"Line Total", Sales[Line Total]
 		)
 
 --Step 7: We can also add columns with expressions to a table. Add the Product Category to the Sales table. 
 --Solution: 
 	EVALUATE
 		ADDCOLUMNS(
-			'Sales',
+			Sales,
 			"Product Category", RELATED( 'Product'[Product Category] )
 		)
 		
@@ -71,10 +71,10 @@
 --Solution:
 	EVALUATE
 		SUMMARIZE(
-			'Sales',
-			'Sales'[Order Date],
-			"Quantity", sum( 'Sales'[Quantity] ), 
-			"Sales", sum( 'Sales'[Line Total] )
+			Sales,
+			Sales[Order Date],
+			"Quantity", SUM( Sales[Quantity] ), 
+			"Sales", SUM( Sales[Line Total] )
 		)
 
 --Step 9: We can also use SUMMARIZECOLUMNS, but it is more complex and not as common. We will review what it 
@@ -82,20 +82,20 @@
 --Solution: 
 	EVALUATE
 		SUMMARIZECOLUMNS(
-			'Sales'[Order Date],
-			"Quantity", sum( 'Sales'[Quantity] ), 
-			"Sales", sum( 'Sales'[Line Total] )
+			Sales[Order Date],
+			"Quantity", SUM( Sales[Quantity] ), 
+			"Sales", SUM( Sales[Line Total] )
 		)
 
 --Step 10: We can also include a table as a filter in SUMMARIZECOLUMNS. Add an argument before the Quantity column that filters Sales[Quantity]
 --to be greater than 5 products. Then update the function from Step 9 to include that filter.
 --Solution:
-	EVALUATE(
+	EVALUATE
 		SUMMARIZECOLUMNS(
-			'Sales'[Order Date],
-			FILTER( ALL( 'Sales'[Quantity] ), Sales[Quantity] > 5 ),
-			"Quantity", sum( 'Sales'[Quantity] ), 
-			"Sales", sum( 'Sales'[Line Total] )
+			Sales[Order Date],
+			FILTER( ALL( Sales[Quantity] ), Sales[Quantity] > 5 ),
+			"Quantity", SUM( Sales[Quantity] ), 
+			"Sales", SUM( Sales[Line Total] )
 		)
 		*Note: The ALL is not necessary in this statment, but it runs more efficiently because you are including only one column from the 
 		Sales table rather than the entire Sales table.
