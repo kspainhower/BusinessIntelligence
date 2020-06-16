@@ -35,7 +35,7 @@
 
 	
 --Step 3: We now will look into UNION, INTERSECT, and EXCEPT. We first need to create a few table variables to compare. 
--- Table variables solution:
+-- Table variables:
 	EVALUATE
 		VAR RedBlack = 
 			CALCULATETABLE(
@@ -49,22 +49,7 @@
 			)
 		VAR RedBlackDAX = { "Red", "Black" }
 	
-	--Now we can use these variables to see how data lineage could break with no ties back to the original data.
-	--Create a table using ADDCOLUMNS to show the sales amount for red and black products using the RedBlack table variable.
-	
-		ADDCOLUMNS(
-			RedBlackDAX,
-			"Sales", [Sales Amount]
-		)
-	
-	--This works because it has a data lineage connection to the model. Now use the RedBlackDAX table variable.
-	
-		ADDCOLUMNS(
-			RedBlackDAX,
-			"Sales", [Sales Amount]
-		)
-		
-	--The sales amount is not filtered because we have lost the data lineage connection to the model. Now, include UNION, INTERSECT, and EXCEPT to see how the data lineage performs
+	--We will now create other tables using UNION, INTERSECT, and EXCEPT to see how they work. 
 	--with each of these joining functions.
 	
 	--UNION
@@ -123,12 +108,12 @@
 			GROUPBY( 
 				AgeGroups,
 				[Age Group],
-				"Sales", sumx( CURRENTGROUP(), [Sales] )
+				"Sales", SUMX( CURRENTGROUP(), [Sales] )
 			)
 
---Step 5: We now will show how we can troubleshoot measures easily with DAX studio. DAX studio allows you to define measures that only live within the query. 
---We use DEFINE and MEASURE to retrive and create measures for our query. Find the [Sales Amount] measure and right click it, then click define measure. 
---This is the DAX query for the visualization in our Poewr BI Report:
+--Step 5: We now will show how we can troubleshoot measures easily with DAX studio. DAX studio allows you to define measures that only live within the query, not your data model. 
+--We use DEFINE and MEASURE to retrieve and create measures for our query. Find the [Sales Amount] measure and right click it, then click define measure. 
+--This is the DAX query for the visualization in our Power BI Report:
 	// DAX Query
 	EVALUATE
 		TOPN(
@@ -177,15 +162,17 @@
 	ORDER BY
 		[IsGrandTotalRowTotal] DESC, 'Product Category'[Product Category]
 	  
---We can now change the measure [Sales Amount to multiply by the discount and see how the numbers change.
+--We can now change the measure [Sales Amount] to multiply by the discount and see how the numbers change.
 	DEFINE
 		
 	---- MODEL MEASURES BEGIN ----
-	MEASURE 'Measures Table'[Percent of Total] = DIVIDE( [Sales Amount], CALCULATE( [Sales Amount], ALL( Sales ) ) )
-	MEASURE 'Measures Table'[Sales Amount] = SUMX(
-		Sales,
-		Sales[Quantity] * Sales[Unit Price] * Sales[Discount] 
-	)
+	MEASURE 'Measures Table'[Percent of Total] = 
+		DIVIDE( [Sales Amount], CALCULATE( [Sales Amount], ALL( Sales ) ) )
+	MEASURE 'Measures Table'[Sales Amount] = 
+		SUMX(
+			Sales,
+			Sales[Quantity] * Sales[Unit Price] * Sales[Discount] 
+		)
 	---- MODEL MEASURES END ----
 	// DAX Query
 	EVALUATE

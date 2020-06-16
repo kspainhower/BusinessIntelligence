@@ -1,0 +1,56 @@
+--AdDAX Data Lineage Solutions:
+
+--DAX Studio download: https://daxstudio.org/
+
+--Step 1: Use ADDCOLUMNS to create a table with Product Categories and Sales amount and give the Product Categories a new column name.
+--Solution: 
+	EVALUATE
+		ADDCOLUMNS (
+			SELECTCOLUMNS(
+				VALUES ( 'Product Category'[Product Category] ),
+				"My Product Category Name", 'Product Category'[Product Category]
+			),
+			"Amt", [Sales Amount]
+		)
+			
+--Step 2: Now add a blank string to the end of the Product Categories column and see what happens.
+--Solution:
+	EVALUATE
+		ADDCOLUMNS (
+			SELECTCOLUMNS(
+				VALUES ( 'Product Category'[Product Category] ),
+				"My Product Category Name", 'Product Category'[Product Category] & ""
+			),
+			"Amt", [Sales Amount]
+		)
+		
+--Step 3: Now we can use these variables to see how data lineage could break with no ties back to the original data.
+Table variables:
+	EVALUATE
+		VAR RedBlack = 
+			CALCULATETABLE(
+				VALUES( 'Product'[Color] ),
+				'Product'[Color] IN { "Red", "Black" }
+			)
+		VAR WhiteBlack = 
+			CALCULATETABLE(
+				VALUES( 'Product'[Color] ),
+				'Product'[Color] IN { "White", "Black" }
+			)
+		VAR RedBlackDAX = { "Red", "Black" }
+
+	--Create a table using ADDCOLUMNS to show the sales amount for red and black products using the RedBlack table variable.
+	
+		ADDCOLUMNS(
+			RedBlack,
+			"Sales", [Sales Amount]
+		)
+	
+	--This works because it has a data lineage connection to the model. Now use the RedBlackDAX table variable.
+	
+		ADDCOLUMNS(
+			RedBlackDAX,
+			"Sales", [Sales Amount]
+		)
+		
+	--The sales amount is not filtered because we have lost the data lineage connection to the model.
