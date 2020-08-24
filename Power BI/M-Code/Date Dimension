@@ -1,0 +1,91 @@
+let
+  #"*PARAMETERS*" = 1,
+  // This parameter determines the first year of this date dimension. Dates will begin on the 1st of January of the year written.
+  FromYear = 2016,
+  // This parameter determines the last year of this date dimension. The final date of the table will be December 31st of the year written.
+  ToYear = Date.Year(DateTime.LocalNow()),
+  // Use this parameter to set the month number that is the start of your organization's fiscal/financial year. (Example: If your fiscal year starts July, 7 should be written here.)
+  StartofFiscalYear = 7,
+  // This parameter determines the day considered the first day of the week.
+  firstDayofWeek = Day.Monday,
+  // Clear depiction of the first day of your table.
+  FromDate = #date(FromYear,1,1),
+  // Clear depiction of the last day of your table.
+  ToDate = #date(ToYear,12,31),
+  #"*DATE TABLE*" = 1,
+  Source = List.Dates(
+        FromDate,
+        Duration.Days(ToDate-FromDate)+1,
+        #duration(1,0,0,0)
+    ),
+  #"Converted to Table" = Table.FromList(Source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+  #"Renamed Columns" = Table.RenameColumns(#"Converted to Table", {{"Column1", "Date"}}),
+  #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns", {{"Date", type date}}),
+  #"Inserted Year" = Table.AddColumn(#"Changed Type", "Year", each Date.Year([Date]), Int64.Type),
+  #"Inserted Start of Year" = Table.AddColumn(#"Inserted Year", "Start of Year", each Date.StartOfYear([Date]), type date),
+  #"Inserted End of Year" = Table.AddColumn(#"Inserted Start of Year", "End of Year", each Date.EndOfYear([Date]), type date),
+  #"Inserted Month" = Table.AddColumn(#"Inserted End of Year", "Month Bridge", each Date.Month([Date]), Int64.Type),
+  #"Inserted Month Number" = Table.AddColumn(#"Inserted Month", "Month Number", each Text.PadStart(Text.From([Month Bridge]),2,"0"), Int64.Type),
+  #"Removed Month" = Table.RemoveColumns(#"Inserted Month Number", {"Month Bridge"}),
+  #"Inserted Start of Month" = Table.AddColumn(#"Removed Month", "Start of Month", each Date.StartOfMonth([Date]), type date),
+  #"Inserted End of Month" = Table.AddColumn(#"Inserted Start of Month", "End of Month", each Date.EndOfMonth([Date]), type date),
+  #"Inserted Days in Month" = Table.AddColumn(#"Inserted End of Month", "Days in Month", each Date.DaysInMonth([Date]), Int64.Type),
+  #"Inserted Day" = Table.AddColumn(#"Inserted Days in Month", "Day", each Date.Day([Date]), Int64.Type),
+  #"Inserted Day Name" = Table.AddColumn(#"Inserted Day", "Day Name", each Date.DayOfWeekName([Date]), type text),
+  #"Inserted Day of Week" = Table.AddColumn(#"Inserted Day Name", "Day of Week", each Date.DayOfWeek([Date]), Int64.Type),
+  #"Inserted Day of Year" = Table.AddColumn(#"Inserted Day of Week", "Day of Year", each Date.DayOfYear([Date]), Int64.Type),
+  #"Inserted Month Name" = Table.AddColumn(#"Inserted Day of Year", "Month Name", each Date.MonthName([Date]), type text),
+  #"Inserted Quarter" = Table.AddColumn(#"Inserted Month Name", "Quarter", each Date.QuarterOfYear([Date]), Int64.Type),
+  #"Inserted Start of Quarter" = Table.AddColumn(#"Inserted Quarter", "Start of Quarter", each Date.StartOfQuarter([Date]), type date),
+  #"Inserted End of Quarter" = Table.AddColumn(#"Inserted Start of Quarter", "End of Quarter", each Date.EndOfQuarter([Date]), type date),
+  #"Inserted Week of Year" = Table.AddColumn(#"Inserted End of Quarter", "Week of Year", each Date.WeekOfYear([Date],firstDayofWeek), Int64.Type),
+  #"Inserted Week of Month" = Table.AddColumn(#"Inserted Week of Year", "Week of Month", each Date.WeekOfMonth([Date],firstDayofWeek), Int64.Type),
+  #"Inserted Start of Week" = Table.AddColumn(#"Inserted Week of Month", "Start of Week", each Date.StartOfWeek([Date],firstDayofWeek), type date),
+  #"Inserted End of Week" = Table.AddColumn(#"Inserted Start of Week", "End of Week", each Date.EndOfWeek([Date],firstDayofWeek), type date),
+  FiscalMonthBaseIndex = 13 - StartofFiscalYear,
+  adjustedFiscalMonthBaseIndex = if(FiscalMonthBaseIndex>=12 or FiscalMonthBaseIndex<0) then 0 else FiscalMonthBaseIndex,
+  #"Added Custom" = Table.AddColumn(#"Inserted End of Week", "FiscalBaseDate", each Date.AddMonths([Date],adjustedFiscalMonthBaseIndex)),
+  #"Changed Type1" = Table.TransformColumnTypes(#"Added Custom", {{"FiscalBaseDate", type date}}),
+  #"Inserted Year1" = Table.AddColumn(#"Changed Type1", "Year.1", each Date.Year([FiscalBaseDate]), Int64.Type),
+  #"Renamed Columns1" = Table.RenameColumns(#"Inserted Year1", {{"Year.1", "Fiscal Year"}}),
+  #"Inserted Quarter1" = Table.AddColumn(#"Renamed Columns1", "Quarter.1", each Date.QuarterOfYear([FiscalBaseDate]), Int64.Type),
+  #"Renamed Columns2" = Table.RenameColumns(#"Inserted Quarter1", {{"Quarter.1", "Fiscal Quarter"}}),
+  #"Inserted Fiscal Month" = Table.AddColumn(#"Renamed Columns2", "Fiscal Month Bridge", each Date.Month([FiscalBaseDate]), Int64.Type),
+  #"Inserted Fiscal Month Number" = Table.AddColumn(#"Inserted Fiscal Month", "Fiscal Month Number", each Text.PadStart(Text.From([Fiscal Month Bridge]),2,"0"), Int64.Type),
+  #"Removed Fiscal Month" = Table.RemoveColumns(#"Inserted Fiscal Month Number", {"Fiscal Month Bridge"}),
+  #"Removed Columns" = Table.RemoveColumns(#"Removed Fiscal Month", {"FiscalBaseDate"}),
+  // Is Past is a useful filter when working with To Date formulas in Power BI, although there are certainly many other reasons to keep this filter in your backpocket.
+  #"Is Past" = Table.AddColumn(#"Removed Columns", "Is Past", each if [Date] < DateTime.Date(DateTime.LocalNow()) then true else false, type text),
+  // Below are labels to help users identify slicers/filters/categories more clearly.
+  #"Quarter Name" = Table.AddColumn(#"Is Past", "Quarter Name", each Text.Combine({"Q", Text.From([Quarter], "en-US")}), type text),
+  #"Day Name Shortened" = Table.AddColumn(#"Quarter Name", "Day Name Shortened", each Text.Start([Day Name], 3), type text),
+  #"Month Name Shortened" = Table.AddColumn(#"Day Name Shortened", "Month Name Shortened", each Text.Start([Month Name], 3), type text),
+  #"Month Year" = Table.AddColumn(#"Month Name Shortened", "Month Year", each Text.Combine({[Month Name Shortened], " ", Text.From([Year], "en-US")}), type text),
+  #"Quarter Year" = Table.AddColumn(#"Month Year", "Quarter Year", each Text.Combine({[Quarter Name], " ", Text.From([Year], "en-US")}), type text),
+  // Below are group indexes used to streamline some calculations.
+  #"==Group Indexes==" = #"Quarter Year",
+  #"Grouped Rows" = Table.Group(#"Quarter Year", {"Year", "Month Number"}, {{"Month Year Index Grouping", each _, type table [Date=date, Year=number, Start of Year=date, End of Year=date, Month=number, Start of Month=date, End of Month=date, Days in Month=number, Day=number, Day Name=text, Day of Week=number, Day of Year=number, Month Name=text, Quarter=number, Start of Quarter=date, End of Quarter=date, Week of Year=number, Week of Month=number, Start of Week=date, End of Week=date, Fiscal Year=number, Fiscal Quarter=number, Fiscal Month=number, Year Month Sort=number, Year Quarter Sort=number, Year Quarter Month Sort=number, Is Past=logical, Quarter Name=text, Day Name Shortened=text, Month Name Shortened=text, Month Year=text, Quarter Year=text, Year Week Sort=text]}}),
+  #"Removed Other Columns" = Table.SelectColumns(#"Grouped Rows", {"Month Year Index Grouping"}),
+  #"Added Index" = Table.AddIndexColumn(#"Removed Other Columns", "Month Year Index", 1, 1),
+  #"Expanded Month Year Index" = Table.ExpandTableColumn(#"Added Index", "Month Year Index Grouping", {"Date", "Year", "Start of Year", "End of Year", "Month Number", "Start of Month", "End of Month", "Days in Month", "Day", "Day Name", "Day of Week", "Day of Year", "Month Name", "Quarter", "Start of Quarter", "End of Quarter", "Week of Year", "Week of Month", "Start of Week", "End of Week", "Fiscal Year", "Fiscal Quarter", "Fiscal Month Number", "Year Month Sort", "Year Quarter Sort", "Year Quarter Month Sort", "Is Past", "Quarter Name", "Day Name Shortened", "Month Name Shortened", "Month Year", "Quarter Year"}, {"Date", "Year", "Start of Year", "End of Year", "Month Number", "Start of Month", "End of Month", "Days in Month", "Day", "Day Name", "Day of Week", "Day of Year", "Month Name", "Quarter", "Start of Quarter", "End of Quarter", "Week of Year", "Week of Month", "Start of Week", "End of Week", "Fiscal Year", "Fiscal Quarter", "Fiscal Month Number", "Year Month Sort", "Year Quarter Sort", "Year Quarter Month Sort", "Is Past", "Quarter Name", "Day Name Shortened", "Month Name Shortened", "Month Year", "Quarter Year"}),
+  #"Grouped Rows1" = Table.Group(#"Expanded Month Year Index", {"Year", "Quarter"}, {{"Quarter Year Index Grouping", each _, type table [Date=date, Year=number, Start of Year=date, End of Year=date, Month=number, Start of Month=date, End of Month=date, Days in Month=number, Day=number, Day Name=text, Day of Week=number, Day of Year=number, Month Name=text, Quarter=number, Start of Quarter=date, End of Quarter=date, Week of Year=number, Week of Month=number, Start of Week=date, End of Week=date, Fiscal Year=number, Fiscal Quarter=number, Fiscal Month=number, Year Month Sort=number, Year Quarter Sort=number, Year Quarter Month Sort=number, Is Past=logical, Quarter Name=text, Day Name Shortened=text, Month Name Shortened=text, Month Year=text, Quarter Year=text, Month Year Index=number]}}),
+  #"Removed Other Columns1" = Table.SelectColumns(#"Grouped Rows1", {"Quarter Year Index Grouping"}),
+  #"Added Index1" = Table.AddIndexColumn(#"Removed Other Columns1", "Quarter Year Index", 1, 1),
+  #"Expanded Quarter Year Index Grouping" = Table.ExpandTableColumn(#"Added Index1", "Quarter Year Index Grouping", {"Date", "Year", "Start of Year", "End of Year", "Month Number", "Start of Month", "End of Month", "Days in Month", "Day", "Day Name", "Day of Week", "Day of Year", "Month Name", "Quarter", "Start of Quarter", "End of Quarter", "Week of Year", "Week of Month", "Start of Week", "End of Week", "Fiscal Year", "Fiscal Quarter", "Fiscal Month Number", "Year Month Sort", "Year Quarter Sort", "Year Quarter Month Sort", "Is Past", "Quarter Name", "Day Name Shortened", "Month Name Shortened", "Month Year", "Quarter Year", "Month Year Index"}, {"Date", "Year", "Start of Year", "End of Year", "Month Number", "Start of Month", "End of Month", "Days in Month", "Day", "Day Name", "Day of Week", "Day of Year", "Month Name", "Quarter", "Start of Quarter", "End of Quarter", "Week of Year", "Week of Month", "Start of Week", "End of Week", "Fiscal Year", "Fiscal Quarter", "Fiscal Month Number", "Year Month Sort", "Year Quarter Sort", "Year Quarter Month Sort", "Is Past", "Quarter Name", "Day Name Shortened", "Month Name Shortened", "Month Year", "Quarter Year", "Month Year Index"}),
+  #"Inserted Merged Column" = Table.AddColumn(#"Expanded Quarter Year Index Grouping", "Year Week Sort", each Text.Combine({Text.From([Year], "en-US"), ".", Text.From([Week of Year], "en-US")}), Int64.Type),
+  #"Grouped Rows2" = Table.Group(#"Inserted Merged Column", {"Year", "Week of Year"}, {{"Year Week Index Grouping", each _, type table [Date=date, Year=number, Start of Year=date, End of Year=date, Month=number, Start of Month=date, End of Month=date, Days in Month=number, Day=number, Day Name=text, Day of Week=number, Day of Year=number, Month Name=text, Quarter=number, Start of Quarter=date, End of Quarter=date, Week of Year=number, Week of Month=number, Start of Week=date, End of Week=date, Fiscal Year=number, Fiscal Quarter=number, Fiscal Month=number, Year Month Sort=number, Year Quarter Sort=number, Year Quarter Month Sort=number, Is Past=logical, Quarter Name=text, Day Name Shortened=text, Month Name Shortened=text, Month Year=text, Quarter Year=text, Month Year Index=number, Quarter Year Index=number, Year Week Sort=text]}}),
+  #"Removed Other Columns2" = Table.SelectColumns(#"Grouped Rows2", {"Year Week Index Grouping"}),
+  #"Added Index2" = Table.AddIndexColumn(#"Removed Other Columns2", "Year Week Index", 1, 1),
+  #"Expanded Year Week Index Grouping" = Table.ExpandTableColumn(#"Added Index2", "Year Week Index Grouping", {"Date", "Year", "Start of Year", "End of Year", "Month Number", "Start of Month", "End of Month", "Days in Month", "Day", "Day Name", "Day of Week", "Day of Year", "Month Name", "Quarter", "Start of Quarter", "End of Quarter", "Week of Year", "Week of Month", "Start of Week", "End of Week", "Fiscal Year", "Fiscal Quarter", "Fiscal Month Number", "Is Past", "Quarter Name", "Day Name Shortened", "Month Name Shortened", "Month Year", "Quarter Year", "Month Year Index", "Quarter Year Index"}, {"Date", "Year", "Start of Year", "End of Year", "Month Number", "Start of Month", "End of Month", "Days in Month", "Day", "Day Name", "Day of Week", "Day of Year", "Month Name", "Quarter", "Start of Quarter", "End of Quarter", "Week of Year", "Week of Month", "Start of Week", "End of Week", "Fiscal Year", "Fiscal Quarter", "Fiscal Month Number", "Is Past", "Quarter Name", "Day Name Shortened", "Month Name Shortened", "Month Year", "Quarter Year", "Month Year Index", "Quarter Year Index"}),
+  #"Changed column type" = Table.TransformColumnTypes(#"Expanded Year Week Index Grouping", {{"Month Number", type text}, {"Fiscal Month Number", type text}}),
+  #"Duplicated column" = Table.DuplicateColumn(#"Changed column type", "Month Number", "Month"),
+  #"Duplicated column 1" = Table.DuplicateColumn(#"Duplicated column", "Fiscal Month Number", "Fiscal Month"),
+  // Type is lost after grouping and expanding. Re-adding column types here.
+  #"Changed column type 1" = Table.TransformColumnTypes(#"Duplicated column 1", {{"Date", type text}, {"Month", Int64.Type}, {"Fiscal Month", Int64.Type}, {"Year", Int64.Type}, {"Days in Month", Int64.Type}, {"Day", Int64.Type}, {"Day of Week", Int64.Type}, {"Day of Year", Int64.Type}, {"Quarter", Int64.Type}, {"Week of Year", Int64.Type}, {"Week of Month", Int64.Type}, {"Fiscal Year", Int64.Type}, {"Fiscal Quarter", Int64.Type}, {"Month Year Index", Int64.Type}, {"Quarter Year Index", Int64.Type}, {"Year Week Index", Int64.Type}}),
+  // Sorting is lost after grouping and expanding. Re-sorting by date here to streamline development and to make the table more sensible.
+  #"Re-sorted Rows by Date" = Table.Sort(#"Changed column type 1", {{"Date", Order.Ascending}}),
+  // For some reason, some duplicates were found during an upload. Resolving that here by removing duplicates.
+  #"Removed duplicates" = Table.Distinct(#"Re-sorted Rows by Date", {"Date"}),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Removed duplicates",{{"Date", type date}})
+in
+  #"Changed Type2"
