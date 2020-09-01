@@ -7,8 +7,8 @@
 	EVALUATE
 		ADDCOLUMNS (
 			CROSSJOIN (
-				DISTINCT( 'Product Category'[Product Category] ),
-				DISTINCT( 'Product'[Color] )
+				VALUES( 'Product Category'[Product Category] ),
+				VALUES( 'Product'[Color] )
 				
 			),
 			"Sales", [Sales Amount] + 0,
@@ -54,19 +54,19 @@
 	
 	--UNION
 		ADDCOLUMNS(
-			UNION( RedBlack, WhiteBlack ) //The switch the RedBlack with RedBlackDAX and see what happens.
+			UNION( RedBlack, WhiteBlack ), //The switch the RedBlack with RedBlackDAX and see what happens.
 			"Sales", [Sales Amount]
 		)
 	
 	--INTERSECT 
 		ADDCOLUMNS(
-			INTERSECT( RedBlack, WhiteBlack ) //The switch the RedBlack with RedBlackDAX and see what happens. Then switch the order so WhiteBlack is first and RedBlackDAX is second. 
+			INTERSECT( RedBlack, WhiteBlack ), //The switch the RedBlack with RedBlackDAX and see what happens. Then switch the order so WhiteBlack is first and RedBlackDAX is second. 
 			"Sales", [Sales Amount]
 		)
 	
 	--EXCEPT
 		ADDCOLUMNS(
-			EXCEPT( RedBlack, WhiteBlack ) //The switch the RedBlack with RedBlackDAX and see what happens. Then switch the order so WhiteBlack is first and RedBlackDAX is second. 
+			EXCEPT( RedBlack, WhiteBlack ), //The switch the RedBlack with RedBlackDAX and see what happens. Then switch the order so WhiteBlack is first and RedBlackDAX is second. 
 			"Sales", [Sales Amount]
 		)
 
